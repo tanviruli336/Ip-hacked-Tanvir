@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Network Tracker</title>
+    <style>
+        body { background: black; color: #00ff00; font-family: 'Courier New', monospace; text-align: center; padding: 20px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; background: #111; border-radius: 10px; box-shadow: 0 0 10px #00ff00; }
+        h2 { text-shadow: 0 0 5px #00ff00; }
+        p { font-size: 18px; }
+        #loading { font-size: 20px; color: yellow; }
+        #result { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>🔍 Advanced Network Tracker</h2>
+        <p id="loading">Fetching network data... ⏳</p>
+        <div id="result">
+            <p><strong>🌐 Public IP:</strong> <span id="public-ip"></span></p>
+            <p><strong>🏠 Local IP:</strong> <span id="local-ip"></span></p>
+            <p><strong>📡 ISP:</strong> <span id="isp"></span></p>
+            <p><strong>🔗 DNS Server:</strong> <span id="dns"></span></p>
+            <p><strong>🔍 VPN/Proxy:</strong> <span id="vpn-status"></span></p>
+            <p><strong>📶 Network Type:</strong> <span id="network"></span></p>
+            <p><strong>⏳ Ping (Latency):</strong> <span id="ping"></span> ms</p>
+            <p><strong>🚀 Download Speed:</strong> <span id="download-speed"></span> Mbps</p>
+            <p><strong>🚀 Upload Speed:</strong> <span id="upload-speed"></span> Mbps</p>
+        </div>
+    </div>
+
+    <script>
+        function getNetworkType() {
+            return navigator.connection ? navigator.connection.effectiveType.toUpperCase() : "Unknown";
+        }
+
+        function fetchIP() {
+            fetch("https://ipinfo.io/json")
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("public-ip").textContent = data.ip;
+                document.getElementById("isp").textContent = data.org;
+                document.getElementById("dns").textContent = data.hostname || "Unknown";
+
+                fetch(`https://vpnapi.io/api/${data.ip}?key=YOUR_API_KEY`)
+                .then(res => res.json())
+                .then(vpnData => {
+                    document.getElementById("vpn-status").textContent = vpnData.security.vpn ? "VPN Detected" : "No VPN";
+                });
+            });
+
+            document.getElementById("network").textContent = getNetworkType();
+            getLocalIP();
+            getPing();
+            testSpeed();
+
+            setTimeout(() => {
+                document.getElementById("loading").style.display = "none";
+                document.getElementById("result").style.display = "block";
+            }, 3000);
+        }
+
+        function getLocalIP() {
+            let rtc = new RTCPeerConnection({ iceServers: [] });
+            rtc.createDataChannel("");
+            rtc.createOffer().then(offer => rtc.setLocalDescription(offer));
+            rtc.onicecandidate = event => {
+                if (event && event.candidate && event.candidate.candidate) {
+                    let ip = event.candidate.candidate.split(" ")[4];
+                    document.getElementById("local-ip").textContent = ip;
+                }
+            };
+        }
+
+        function getPing() {
+            let startTime = performance.now();
+            fetch("https://www.google.com")
+            .then(() => {
+                let latency = Math.round(performance.now() - startTime);
+                document.getElementById("ping").textContent = latency;
+            });
+        }
+
+        function testSpeed() {
+            let startTime = new Date().getTime();
+            let downloadSize = 5000000;
+
+            fetch("https://speed.hetzner.de/5MB.bin") 
+            .then(response => response.blob())
+            .then(blob => {
+                let endTime = new Date().getTime();
+                let duration = (endTime - startTime) / 1000;
+                let bitsLoaded = downloadSize * 8;
+                let speedMbps = (bitsLoaded / duration) / 1024 / 1024;
+                document.getElementById("download-speed").textContent = speedMbps.toFixed(2);
+                
+                testUploadSpeed();
+            });
+        }
+
+        function testUploadSpeed() {
+            let startTime = new Date().getTime();
+            let uploadData = new Blob([new Uint8Array(5000000)]);
+
+            fetch("https://speed.hetzner.de/5MB.bin", {
+                method: "POST",
+                body: uploadData
+            })
+            .then(() => {
+                let endTime = new Date().getTime();
+                let duration = (endTime - startTime) / 1000;
+                let bitsLoaded = uploadData.size * 8;
+                let speedMbps = (bitsLoaded / duration) / 1024 / 1024;
+                document.getElementById("upload-speed").textContent = speedMbps.toFixed(2);
+            });
+        }
+
+        fetchIP();
+    </script>
+
+</body>
+</html>
